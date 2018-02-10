@@ -3,10 +3,12 @@ import datetime
 import time
 
 import numpy as np
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 from keras import layers
 from keras.optimizers import RMSprop
-from models import get_rnn
+from models import get_rnn, get_simple
+import matplotlib.pyplot as plt
+
 
 def generator(data, lookback, delay, min_index, max_index,
               shuffle=False, batch_size=128, step=6):
@@ -31,7 +33,7 @@ def generator(data, lookback, delay, min_index, max_index,
             targets[idx] = data[rows[idx] + delay][1]
         yield samples, targets
 
-def main():
+def train():
     """
     Predicting ETH price
 
@@ -103,12 +105,99 @@ def main():
     val_steps = (300000 - 200001 - lookback)
     test_steps = (len(float_data) - 300001 - lookback)
 
-    model = get_rnn(float_data)
+    # model = get_rnn(float_data)
+
+    model = get_simple(float_data, lookback, step)
     history = model.fit_generator(train_gen,
                                   steps_per_epoch=400,
                                   epochs=20,
                                   validation_data=val_gen,
                                   validation_steps=val_steps/128)
+    model.save('simple.h5')
+
+
+def chart_predictions(weights_file):
+    """
+    Generates a chart with real prices and predicted prices
+    """
+    # Load and format the data
+    # TODO: Refactor the shared logic
+    txns = []
+    with open('txns2.csv', 'rb') as f:
+        reader = csv.reader(f, delimiter=',')
+        for r in reader:
+            price = float(r[2])
+            strdate = r[3]
+            date = datetime.datetime.strptime(strdate, 
+                                              '%Y-%m-%d %H:%M:%S')
+            unix_time = time.mktime(date.timetuple())
+            txns.append((unix_time, price))
+    float_data = np.zeros((len(txns), 2))
+    for index, line in enumerate(txns):
+        values = [float(x) for x in line]
+        float_data[index, :] = values
+    
+    # Normalize the data 
+
+    mean = float_data[:100000].mean(axis=0)
+    float_data -= mean
+    std = float_data[:100000].std(axis=0)
+    float_data /= std
+    # Look at last 128 prices
+    lookback = 128
+
+    # No sampling, use every price
+    step = 1
+    
+    # Try to predict the price 128 timestamps in the future
+    # delay = 128 
+    delay = 1
+    
+    batch_size = 128
+
+    val_gen = generator(float_data,
+                        lookback=lookback,
+                        delay=delay,
+                        min_index=100001,
+                        max_index=200000,
+                        shuffle=True,
+                        step=step,
+                        batch_size=batch_size)
+
+    model = load_model(weights_file)
+    output = model.predict_generator(val_gen,
+                                     steps=100000/128)
+    # Denormalize to get predicted prices
+    output *= std[1]
+    output += mean[1]
+
+    # Actual prices 
+    actual = []
+    x_vals = []
+    real_y_vals = []
+    predicted_y_vals = []
+    for i in range(100001 + 128, 200000):
+        val = float_data[i]
+
+        timestamp = val[0] * std[0]
+        timestamp += mean[0]
+
+        price = val[1] * std[1]
+        price += mean[1]
+        output_idx = i - (100001 + 128)
+        predicted_price = output[output_idx][0]
+        x_vals.append(timestamp)
+        real_y_vals.append(price)
+        predicted_y_vals.append(predicted_price)
+
+    # plt.plot(x_vals, real_y_vals)
+    plt.plot(x_vals, predicted_y_vals)
+    plt.savefig('predictions.png')
+
+
+def main():
+    # train()
+    chart_predictions('simple.h5')
 
 
 if __name__ == '__main__':
