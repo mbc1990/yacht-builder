@@ -102,3 +102,6 @@ ENV/
 
 *.swp
 *.csv
+
+# Dont commit models in case they actually work
+models.py

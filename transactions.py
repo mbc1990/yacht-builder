@@ -6,6 +6,7 @@ import numpy as np
 from keras.models import Sequential
 from keras import layers
 from keras.optimizers import RMSprop
+from models import get_rnn
 
 def generator(data, lookback, delay, min_index, max_index,
               shuffle=False, batch_size=128, step=6):
@@ -67,7 +68,8 @@ def main():
     step = 1
     
     # Try to predict the price 128 timestamps in the future
-    delay = 128 
+    # delay = 128 
+    delay = 1
     
     batch_size = 128
 
@@ -101,41 +103,7 @@ def main():
     val_steps = (300000 - 200001 - lookback)
     test_steps = (len(float_data) - 300001 - lookback)
 
-
-    # Baseline method MAE: 0.059
-    '''
-    batch_maes = []
-    count = 0
-    for step in range(val_steps):
-        print str(count) + " / " + str(val_steps)
-        count += 1
-        samples, targets = next(val_gen)
-        preds = samples[:, -1, 1]
-        mae = np.mean(np.abs(preds - targets))
-        batch_maes.append(mae)
-    print np.mean(batch_maes)  
-
-    '''
-    
-    # Baseline neural network MAE: 0.2457 (val loss)
-    '''
-    model = Sequential()
-    model.add(layers.Flatten(input_shape=(lookback // step, float_data.shape[-1])))
-    model.add(layers.Dense(32, activation='relu'))
-    model.add(layers.Dense(1))
-    model.compile(optimizer=RMSprop(), loss='mae')
-    history = model.fit_generator(train_gen,
-                                  steps_per_epoch=400,
-                                  epochs=20,
-                                  validation_data=val_gen,
-                                  validation_steps=val_steps/128)
-    '''
-
-    # Simple recurrent network MAE: (val loss)
-    model = Sequential()
-    model.add(layers.GRU(32, input_shape=(None, float_data.shape[-1])))
-    model.add(layers.Dense(1))
-    model.compile(optimizer=RMSprop(), loss='mae')
+    model = get_rnn(float_data)
     history = model.fit_generator(train_gen,
                                   steps_per_epoch=400,
                                   epochs=20,
