@@ -37,10 +37,23 @@ def make_embedding():
     output_array = model.predict(data)
     return word_index, output_array
 
+def prepare_data(word_index, word_embedding):
+    """
+    Reads the comments and transactions CSVs, formats the data for input
+    and returns training + validation inputs formatted for the model
+    """
+    pass
+
+def get_model():
+    """
+    Returns an LSTM based model
+    """
+    pass
 
 def main():
     # Make word embeddings over *all* comments
     word_index, word_embedding = make_embedding()
+    model = get_model():
 
 
 if __name__ == '__main__':
