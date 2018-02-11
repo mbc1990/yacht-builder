@@ -10,13 +10,13 @@ from models import get_rnn, get_simple, get_simple_rnn, get_conv
 import matplotlib.pyplot as plt
 
 # How many prices to consider before predicting the future
-LOOKBACK = 256 
+LOOKBACK = 128
 
 # No sampling, use every price
 STEP = 1
 
 # How many timesteps in the future we want to predict
-DELAY = 25
+DELAY = 1
 
 # Number of data points processed in a single batch
 BATCH_SIZE = 128
@@ -45,7 +45,6 @@ def generator(data, lookback, delay, min_index, max_index,
             targets[idx] = data[rows[idx] + delay][1]
         yield samples, targets
 
-
 def train():
     """
     Predicting ETH price
@@ -57,9 +56,9 @@ def train():
     float_data = get_float_data()
     
     # Normalize the data 
-    mean = float_data.mean(axis=0)
+    mean = float_data[:100000].mean(axis=0)
     float_data -= mean
-    std = float_data.std(axis=0)
+    std = float_data[:100000].std(axis=0)
     float_data /= std
 
     train_gen = generator(float_data,
@@ -87,11 +86,11 @@ def train():
     model = get_conv(float_data)
 
     history = model.fit_generator(train_gen,
-                                  steps_per_epoch=100,
-                                  epochs=1,
+                                  steps_per_epoch=400,
+                                  epochs=5,
                                   validation_data=val_gen,
                                   validation_steps=val_steps/128)
-    model.save('conv-10-v4.h5')
+    model.save('conv-5.h5')
 
 
 def get_float_data():
@@ -120,9 +119,9 @@ def chart_predictions(weights_file):
     float_data = get_float_data()
     
     # Normalize the data 
-    mean = float_data.mean(axis=0)
+    mean = float_data[:100000].mean(axis=0)
     float_data -= mean
-    std = float_data.std(axis=0)
+    std = float_data[:100000].std(axis=0)
     float_data /= std
 
     test_gen = generator(float_data,
@@ -168,7 +167,7 @@ def chart_predictions(weights_file):
 
 def main():
     # train()
-    chart_predictions('conv-10-v4.h5')
+    chart_predictions('conv-5.h5')
 
 
 if __name__ == '__main__':
