@@ -9,7 +9,7 @@ from keras.optimizers import RMSprop
 from models import get_rnn, get_simple, get_simple_rnn, get_conv
 import matplotlib.pyplot as plt
 
-# Look at last 128 prices
+# How many prices to consider before predicting the future
 LOOKBACK = 128
 
 # No sampling, use every price
@@ -33,7 +33,7 @@ def generator(data, lookback, delay, min_index, max_index,
         if shuffle:
             rows = np.random.randint(min_index + lookback, max_index, size=batch_size)
         else:
-            if i + bactch_size >= max_index:
+            if i + batch_size >= max_index:
                 i = min_index + lookback
             rows = np.arange(i, min(i + batch_size, max_index))
             i += len(rows)
@@ -60,14 +60,12 @@ def train():
     float_data -= mean
     std = float_data[:100000].std(axis=0)
     float_data /= std
-    
 
     train_gen = generator(float_data,
                           lookback=LOOKBACK,
                           delay=DELAY,
                           min_index=0,
                           max_index=100000,
-                          shuffle=True,
                           step=STEP,
                           batch_size=BATCH_SIZE)
 
@@ -76,19 +74,9 @@ def train():
                         delay=DELAY,
                         min_index=100001,
                         max_index=200000,
-                        shuffle=True,
                         step=STEP,
                         batch_size=BATCH_SIZE)
 
-    test_gen = generator(float_data,
-                         lookback=LOOKBACK,
-                         delay=DELAY,
-                         min_index=200001,
-                         max_index=300000,
-                         shuffle=True,
-                         step=STEP,
-                         batch_size=BATCH_SIZE)
-    
     val_steps = (300000 - 200001 - LOOKBACK)
     test_steps = (len(float_data) - 300001 - LOOKBACK)
 
@@ -99,10 +87,10 @@ def train():
 
     history = model.fit_generator(train_gen,
                                   steps_per_epoch=400,
-                                  epochs=20,
+                                  epochs=5,
                                   validation_data=val_gen,
                                   validation_steps=val_steps/128)
-    model.save('conv-20.h5')
+    model.save('conv-5.h5')
 
 
 def get_float_data():
@@ -128,7 +116,7 @@ def chart_predictions(weights_file):
     Generates a chart with real prices and predicted prices
     """
     # Load and format the data
-    fload_data = get_float_data()
+    float_data = get_float_data()
     
     # Normalize the data 
     mean = float_data[:100000].mean(axis=0)
@@ -136,17 +124,17 @@ def chart_predictions(weights_file):
     std = float_data[:100000].std(axis=0)
     float_data /= std
 
-    val_gen = generator(float_data,
-                        lookback=LOOKBACK,
-                        delay=DELAY,
-                        min_index=100001,
-                        max_index=200000,
-                        shuffle=True,
-                        step=STEP,
-                        batch_size=BATCH_SIZE)
+    test_gen = generator(float_data,
+                         lookback=LOOKBACK,
+                         delay=DELAY,
+                         min_index=200001,
+                         max_index=300000,
+                         step=STEP,
+                         batch_size=BATCH_SIZE)
+    
 
     model = load_model(weights_file)
-    output = model.predict_generator(val_gen,
+    output = model.predict_generator(test_gen,
                                      steps=100000/128)
     # Denormalize to get predicted prices
     output *= std[1]
@@ -157,7 +145,7 @@ def chart_predictions(weights_file):
     x_vals = []
     real_y_vals = []
     predicted_y_vals = []
-    for i in range(100001 + 128, 200000):
+    for i in range(200001 + 128, 300000):
         val = float_data[i]
 
         timestamp = val[0] * std[0]
@@ -165,7 +153,7 @@ def chart_predictions(weights_file):
 
         price = val[1] * std[1]
         price += mean[1]
-        output_idx = i - (100001 + 128)
+        output_idx = i - (200001 + 128)
         predicted_price = output[output_idx][0]
         x_vals.append(timestamp)
         real_y_vals.append(price)
@@ -178,8 +166,8 @@ def chart_predictions(weights_file):
 
 
 def main():
-    train()
-    # chart_predictions('conv-20.h5')
+    # train()
+    chart_predictions('conv-5.h5')
 
 
 if __name__ == '__main__':
